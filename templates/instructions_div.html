@@ -1,0 +1,25 @@
+<div>
+    <div style="margin: 20px; padding: 20px; border: 1px solid #ccc; background-color: #f9f9f9;">
+        <h2>Artifact database is empty</h2>
+        <p>You can add artifacts by pushing them using this curl command:</p>
+        <pre class="code">
+curl -F "name=example_name" \
+     -F "commit_hash=example_hash" \
+     -F "file=@/path/to/your/file" \
+     -F "tags={\"deployed\": true}" \
+     http://localhost:5000/push
+            </pre>
+        <p>You can downloads artifacts using this curl command:</p>
+        <pre class="code">
+curl "http://127.0.0.1:5000/download?name=example_name" -o new_file
+            </pre>
+        <p>Using both name and commit_hash</p>
+        <pre class="code">
+curl "http://127.0.0.1:5000/download?name=example_name&commit_hash=example_hash" -o new_file1
+            </pre>
+        <p>You can see the differences between artifacts using this curl command:</p>
+        <pre class="code">
+curl "http://127.0.0.1:5000/diff?name=example_name&commit_hash_a=example_hash_a&commit_hash_b=example_hash_b"
+            </pre>
+    </div>
+</div>

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+
+{% include "navigation.html" %}
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifactory</title>
+</head>
+
+<style>
+    * {
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .code {
+        background-color: #f4f4f4;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+    }
+
+    .artifact-container {
+        margin: 10px;
+        padding: 10px;
+        display: flex;
+        gap: 40px;
+    }
+
+    .double_check_mark {
+        width: 20px;
+        height: 20px;
+    }
+
+    .artifact-header {
+        max-width: max-content;
+    }
+
+    .artifact-header .name {
+        font-size: 28px;
+        padding: 10px;
+        text-align: center;
+        border: 1px solid black;
+        width: 500px;
+        height: 60px;
+    }
+
+    .artifact-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .artifact-item .commit_hash {
+        max-width: max-content;
+        border-right: 1px solid black;
+        padding-right: 10px;
+    }
+
+    .artifact-item .created_time {
+        max-width: max-content;
+        border-right: 1px solid black;
+        padding-right: 10px;
+    }
+
+    .artifact-item .download {
+        max-width: max-content;
+        border-right: 1px solid black;
+        padding-right: 10px;
+        color: #0000EE;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .artifact-item .deploy {
+        max-width: max-content;
+        border-right: 1px solid black;
+        padding-right: 10px;
+        color: #0000EE;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .artifact-item .link {
+        max-width: max-content;
+        border-right: 1px solid black;
+        padding-right: 10px;
+        color: #0000EE;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+
+    .artifact-item a,
+    .difference {
+        text-decoration: none;
+        color: black;
+        border-left: 1px solid black;
+        padding-left: 10px;
+    }
+</style>
+
+<body>
+    {% if not artifacts %}
+    {% include "instructions_div.html" %}
+    {% else %}
+    <div>
+        {% for name, artifact_list in artifacts.items() %}
+        <div class="artifact-container">
+            <div class="artifact-header">
+                <p class="name">{{ name }}</p>
+            </div>
+            <div class="artifact-list">
+                {% for artifact in artifact_list %}
+                <div class="artifact-item">
+                    <p class="created_time"> {{ artifact.created_at }}</p>
+                    <p class="commit_hash">
+                        {{ artifact.commit_hash }}
+                    </p>
+                    {% if artifact.tags.type != 'other' %}
+                    <select name="select_commit_hash" id="select_commit_hash">
+                        {% for commit in commit_hashes[name] %}
+                        <option value="{{ commit }}" {% if artifact.commit_hash==commit %}selected{% endif %}>{{ commit
+                            }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="difference"> no diff </p>
+                    {% endif %}
+                    <p class="download"><a
+                            href="{{ url_for('download_dashboard' , artifact_id=artifact.id) }}">download</a></p>
+                    <p class="deploy"><a href="{{ url_for('deploy_api' , artifact_id=artifact.id) }}">deploy</a></p>
+                    {% if artifact.tags.deployed %}
+                    <p class="double_check_mark" title="deployed">✓✓</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll('select[name="select_commit_hash"]').forEach(function (select) {
+                select.addEventListener("change", async function () {
+                    const artifactItem = select.closest('.artifact-item');
+                    const differenceParagraph = artifactItem.querySelector('.difference');
+                    const nameElem = artifactItem.closest('.artifact-container').querySelector('.name');
+                    const name = nameElem ? nameElem.innerText.trim() : null;
+                    const selectedHash = select.value;
+
+                    const commitElem = artifactItem.querySelector('.commit_hash');
+                    let originalHash = null;
+                    const linkElem = commitElem.querySelector('a');
+                    originalHash = linkElem ? linkElem.textContent.trim() : commitElem.textContent.trim();
+
+                    if (!name || !originalHash || !selectedHash || originalHash === selectedHash) {
+                        differenceParagraph.innerText = "no diff";
+                        return;
+                    }
+
+                    differenceParagraph.innerText = "loading diff...";
+
+                    try {
+                        const url = `/diff?name=${encodeURIComponent(name)}&commit_hash_a=${encodeURIComponent(originalHash)}&commit_hash_b=${encodeURIComponent(selectedHash)}`;
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            differenceParagraph.innerText = "diff error";
+                            return;
+                        }
+
+                        const data = await response.json();
+                        const diff = data.diff_by_table;
+                        let hasRealDiff = false;
+
+                        for (const table in diff) {
+                            const tableDiffHtml = diff[table];
+                            if (!tableDiffHtml.includes("(no differences found)")) {
+                                hasRealDiff = true;
+                                break;
+                            }
+                        }
+
+                        if (hasRealDiff) {
+                            differenceParagraph.innerText = "show diff";
+                            differenceParagraph.style.cursor = "pointer";
+                            differenceParagraph.title = "Click to view diff in console";
+                            differenceParagraph.onclick = () => {
+                                const newWindow = window.open("", "_blank");
+                                if (!newWindow) return;
+
+                                const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diff: ${name}</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #fdfdfd;
+            color: #222;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            background: #ffffffdd;
+            padding: 10px 0;
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 20px;
+            z-index: 1000;
+        }
+
+        h1, h2, h3 {
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        h3 {
+            font-size: 16px;
+            margin-top: 0;
+            color: #555;
+        }
+
+        .table-container {
+            margin-bottom: 50px;
+        }
+
+        table.diff {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Consolas, monospace;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+        }
+
+        .diff_header {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .diff_next {
+            background-color: #e0e0e0;
+        }
+
+        .diff_add {
+            background-color: #d4f7d4;
+        }
+
+        .diff_chg {
+            background-color: #fff3b0;
+        }
+
+        .diff_sub {
+            background-color: #f8d7da;
+        }
+
+        td, th {
+            padding: 4px 6px;
+            border: 1px solid #ddd;
+        }
+
+        code {
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        .no-diff {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Diff for Artifact: ${name}</h1>
+        <h3>Comparing commits: <code>${originalHash}</code> → <code>${selectedHash}</code></h3>
+    </header>
+
+
+<div class="table-container">
+        ${diff.includes("(no differences found)")
+                                        ? `<p class="no-diff">(no differences found)</p>`
+                                        : `<pre class="diff-output">${diff}</pre>`}
+    </div>
+
+</body>
+</html>
+    `;
+
+                                newWindow.document.write(htmlContent);
+                                newWindow.document.close();
+                            };
+
+                        } else {
+                            differenceParagraph.innerText = "no diff";
+                            differenceParagraph.title = "";
+                            differenceParagraph.style.cursor = "default";
+                            differenceParagraph.onclick = null;
+                        }
+                    } catch (error) {
+                        differenceParagraph.innerText = "error loading diff";
+                        console.error(error);
+                    }
+                });
+            });
+        });
+    </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll(".deploy a").forEach(function (deployLink) {
+                deployLink.addEventListener("click", async function (event) {
+                    event.preventDefault();
+
+                    const artifactItem = deployLink.closest(".artifact-item");
+                    const artifactContainer = deployLink.closest(".artifact-container");
+
+                    if (!artifactItem || !artifactContainer) {
+                        alert("Could not find artifact row.");
+                        return;
+                    }
+
+                    deployLink.innerText = "deploying...";
+
+                    try {
+                        const response = await fetch(deployLink.href, {
+                            method: "GET"
+                        });
+
+                        const responseText = await response.text();
+
+                        if (!response.ok) {
+                            deployLink.innerText = "deploy";
+                            alert("Deploy failed: " + responseText);
+                            return;
+                        }
+
+                        artifactContainer.querySelectorAll(".double_check_mark").forEach(function (mark) {
+                            mark.remove();
+                        });
+
+                        const deployedMark = document.createElement("p");
+                        deployedMark.className = "double_check_mark";
+                        deployedMark.title = "deployed";
+                        deployedMark.innerText = "✓✓";
+
+                        artifactItem.appendChild(deployedMark);
+
+                        deployLink.innerText = "deploy";
+
+                    } catch (error) {
+                        deployLink.innerText = "deploy";
+                        alert("Deploy error: " + error.message);
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+{% include "navigation.html" %}
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifactory</title>
+</head>
+
+<style>
+    * {
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .code {
+        background-color: #f4f4f4;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+    }
+
+    .artifact-container {
+        margin: 10px;
+        padding: 10px;
+        display: flex;
+        gap: 40px;
+    }
+
+    .double_check_mark {
+        width: 20px;
+        height: 20px;
+    }
+
+    .artifact-header {
+        max-width: max-content;
+    }
+
+    .artifact-header .name {
+        font-size: 28px;
+        padding: 10px;
+        text-align: center;
+        border: 1px solid black;
+    }
+
+    .artifact-header .type {
+        font-style: italic;
+        font-size: 14px;
+    }
+
+    .artifact-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .artifact-item .commit_hash {
+        max-width: max-content;
+        border-right: 1px solid black;
+        padding-right: 10px;
+    }
+
+    .artifact-item a,
+    .difference {
+        text-decoration: none;
+        color: black;
+        border-left: 1px solid black;
+        padding-left: 10px;
+    }
+</style>
+
+<body>
+    {% include "instructions_div.html" %}
+</body>
+
+</html>
