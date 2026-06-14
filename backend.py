@@ -461,9 +461,9 @@ def push():
         app.logger.error(f"error: '{error_message}' | name: '{name}' | commit_hash: '{commit_hash}' | file_content: '{file_content}'") 
         return error_message, 400
 
-    is_allowed_characters = re.match(r"[a-zA-Z0-9-_]+$", name)
+    is_allowed_characters = re.match(r"^[a-zA-Z0-9_.-]+$", name)
     if not is_allowed_characters:
-        error_message = "Invalid name. Name must be within this range of characters: (a-z, A-Z, 0-9, -, _)."
+        error_message = "Invalid name. Name must contain only: a-z, A-Z, 0-9, dot, dash, underscore."
         app.logger.error(f"error_message: '{error_message}' | name: '{name}'")
         return error_message, 400
     
