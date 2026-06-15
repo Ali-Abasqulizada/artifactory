@@ -11,93 +11,237 @@
 
 <style>
     * {
+        box-sizing: border-box;
         font-family: Arial, Helvetica, sans-serif;
     }
 
+    body {
+        margin: 0;
+        background: #f5f7fb;
+        color: #1f2937;
+    }
+
     .code {
-        background-color: #f4f4f4;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
+        background-color: #eef2f7;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-family: Consolas, monospace;
+        color: #111827;
+        border: 1px solid #d1d5db;
     }
 
     .artifact-container {
-        margin: 10px;
-        padding: 10px;
+        margin: 24px auto;
+        padding: 22px;
         display: flex;
-        gap: 40px;
-    }
-
-    .double_check_mark {
-        width: 20px;
-        height: 20px;
+        gap: 36px;
+        max-width: 1100px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
     }
 
     .artifact-header {
-        max-width: max-content;
+        min-width: 260px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
     }
 
     .artifact-header .name {
-        font-size: 28px;
-        padding: 10px;
+        font-size: 24px;
+        font-weight: 700;
+        padding: 18px;
         text-align: center;
-        border: 1px solid black;
-        width: 500px;
-        height: 60px;
+        border: none;
+        width: 260px;
+        min-height: 80px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #eef2ff, #f8fafc);
+        color: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        word-break: break-word;
+    }
+
+    .artifact-list {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
     }
 
     .artifact-item {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
+        padding: 12px 14px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        transition: 0.2s ease;
+        flex-wrap: wrap;
     }
 
-    .artifact-item .commit_hash {
-        max-width: max-content;
-        border-right: 1px solid black;
-        padding-right: 10px;
+    .artifact-item:hover {
+        background: #ffffff;
+        border-color: #c7d2fe;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+        transform: translateY(-1px);
+    }
+
+    .artifact-item .created_time,
+    .artifact-item .commit_hash,
+    .artifact-item .download,
+    .artifact-item .deploy,
+    .artifact-item .link {
+        margin: 0;
+        padding: 6px 12px;
+        border-right: 1px solid #d1d5db;
+        font-size: 14px;
+        white-space: nowrap;
     }
 
     .artifact-item .created_time {
-        max-width: max-content;
-        border-right: 1px solid black;
-        padding-right: 10px;
+        color: #6b7280;
     }
 
-    .artifact-item .download {
-        max-width: max-content;
-        border-right: 1px solid black;
-        padding-right: 10px;
-        color: #0000EE;
-        text-decoration: underline;
-        cursor: pointer;
+    .artifact-item .commit_hash {
+        font-family: Consolas, monospace;
+        color: #374151;
+        background: #eef2f7;
+        border-radius: 8px;
+        border-right: none;
     }
 
-    .artifact-item .deploy {
-        max-width: max-content;
-        border-right: 1px solid black;
-        padding-right: 10px;
-        color: #0000EE;
-        text-decoration: underline;
-        cursor: pointer;
-    }
-
-    .artifact-item .link {
-        max-width: max-content;
-        border-right: 1px solid black;
-        padding-right: 10px;
-        color: #0000EE;
-        text-decoration: underline;
-        cursor: pointer;
-    }
-
-
-    .artifact-item a,
-    .difference {
+    .artifact-item a {
+        color: #2563eb;
         text-decoration: none;
-        color: black;
-        border-left: 1px solid black;
-        padding-left: 10px;
+        font-weight: 600;
+    }
+
+    .artifact-item a:hover {
+        color: #1d4ed8;
+        text-decoration: underline;
+    }
+
+    .artifact-item .download,
+    .artifact-item .deploy,
+    .artifact-item .link {
+        color: #2563eb;
+        cursor: pointer;
+    }
+
+    .artifact-item .deploy a {
+        color: #059669;
+    }
+
+    .artifact-item .deploy a:hover {
+        color: #047857;
+    }
+
+    select[name="select_commit_hash"] {
+        padding: 7px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #111827;
+        cursor: pointer;
+        outline: none;
+    }
+
+    select[name="select_commit_hash"]:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .difference {
+        margin: 0;
+        padding: 7px 12px;
+        border-left: none;
+        border-radius: 8px;
+        background: #f3f4f6;
+        color: #374151;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: default;
+    }
+
+    .difference:hover {
+        background: #e5e7eb;
+    }
+
+    .double_check_mark {
+        width: auto;
+        height: auto;
+        margin: 0;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #15803d;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: default;
+    }
+
+    @media (max-width: 800px) {
+        .artifact-container {
+            flex-direction: column;
+            margin: 16px;
+            gap: 18px;
+        }
+
+        .artifact-header {
+            justify-content: flex-start;
+        }
+
+        .artifact-header .name {
+            width: 100%;
+        }
+
+        .artifact-item {
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<style>
+    .difference {
+        margin: 0;
+        padding: 7px 12px;
+        border-radius: 8px;
+        background: #f3f4f6;
+        color: #374151;
+        font-size: 14px;
+        font-weight: 600;
+        transition: 0.2s ease;
+    }
+
+    .difference[data-state="loading"] {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    .difference[data-state="ready"] {
+        background: #dcfce7;
+        color: #166534;
+        cursor: pointer;
+    }
+
+    .difference[data-state="ready"]:hover {
+        background: #bbf7d0;
+    }
+
+    .difference[data-state="error"] {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .difference[data-state="none"] {
+        background: #f3f4f6;
+        color: #6b7280;
     }
 </style>
 
@@ -143,96 +287,124 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            document.querySelectorAll('select[name="select_commit_hash"]').forEach(function (select) {
-                select.addEventListener("change", async function () {
-                    const artifactItem = select.closest('.artifact-item');
-                    const differenceParagraph = artifactItem.querySelector('.difference');
-                    const nameElem = artifactItem.closest('.artifact-container').querySelector('.name');
-                    const name = nameElem ? nameElem.innerText.trim() : null;
-                    const selectedHash = select.value;
+            function escapeHtml(value) {
+                return String(value)
+                    .replaceAll("&", "&amp;")
+                    .replaceAll("<", "&lt;")
+                    .replaceAll(">", "&gt;")
+                    .replaceAll('"', "&quot;")
+                    .replaceAll("'", "&#039;");
+            }
 
-                    const commitElem = artifactItem.querySelector('.commit_hash');
-                    let originalHash = null;
-                    const linkElem = commitElem.querySelector('a');
-                    originalHash = linkElem ? linkElem.textContent.trim() : commitElem.textContent.trim();
+            function setDifferenceState(element, text, state) {
+                element.innerText = text;
+                element.dataset.state = state;
 
-                    if (!name || !originalHash || !selectedHash || originalHash === selectedHash) {
-                        differenceParagraph.innerText = "no diff";
-                        return;
-                    }
+                element.style.cursor = state === "ready" ? "pointer" : "default";
+                element.onclick = null;
+            }
 
-                    differenceParagraph.innerText = "loading diff...";
+            function openDiffWindow({ name, originalHash, selectedHash, diff }) {
+                const newWindow = window.open("", "_blank");
 
-                    try {
-                        const url = `/diff?name=${encodeURIComponent(name)}&commit_hash_a=${encodeURIComponent(originalHash)}&commit_hash_b=${encodeURIComponent(selectedHash)}`;
-                        const response = await fetch(url);
-                        if (!response.ok) {
-                            differenceParagraph.innerText = "diff error";
-                            return;
-                        }
+                if (!newWindow) {
+                    alert("Popup blocked. Please allow popups to view the diff.");
+                    return;
+                }
 
-                        const data = await response.json();
-                        const diff = data.diff_by_table;
-                        let hasRealDiff = false;
+                const safeName = escapeHtml(name);
+                const safeOriginalHash = escapeHtml(originalHash);
+                const safeSelectedHash = escapeHtml(selectedHash);
 
-                        for (const table in diff) {
-                            const tableDiffHtml = diff[table];
-                            if (!tableDiffHtml.includes("(no differences found)")) {
-                                hasRealDiff = true;
-                                break;
-                            }
-                        }
-
-                        if (hasRealDiff) {
-                            differenceParagraph.innerText = "show diff";
-                            differenceParagraph.style.cursor = "pointer";
-                            differenceParagraph.title = "Click to view diff in console";
-                            differenceParagraph.onclick = () => {
-                                const newWindow = window.open("", "_blank");
-                                if (!newWindow) return;
-
-                                const htmlContent = `
+                const htmlContent = `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Diff: ${name}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diff: ${safeName}</title>
+
     <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
         body {
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #fdfdfd;
-            color: #222;
-            padding: 20px;
-            line-height: 1.6;
+            margin: 0;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .page {
+            padding: 28px;
         }
 
         header {
             position: sticky;
             top: 0;
-            background: #ffffffdd;
-            padding: 10px 0;
-            border-bottom: 1px solid #ccc;
-            margin-bottom: 20px;
             z-index: 1000;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+            padding: 20px 28px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
         }
 
-        h1, h2, h3 {
-            color: #2c3e50;
-            font-weight: 500;
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
         }
 
         h1 {
+            margin: 0;
             font-size: 24px;
-            margin-bottom: 5px;
+            font-weight: 800;
+            color: #111827;
         }
 
-        h3 {
-            font-size: 16px;
-            margin-top: 0;
-            color: #555;
+        .subtitle {
+            margin-top: 8px;
+            color: #6b7280;
+            font-size: 14px;
         }
 
-        .table-container {
-            margin-bottom: 50px;
+        .commit-row {
+            margin-top: 14px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .commit-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 11px;
+            border-radius: 10px;
+            background: #eef2f7;
+            border: 1px solid #d1d5db;
+            font-family: Consolas, monospace;
+            font-size: 13px;
+            color: #111827;
+        }
+
+        .arrow {
+            color: #6b7280;
+            font-weight: 700;
+        }
+
+        .diff-card {
+            margin-top: 24px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+            overflow: auto;
+            padding: 16px;
         }
 
         table.diff {
@@ -240,76 +412,202 @@
             border-collapse: collapse;
             font-family: Consolas, monospace;
             font-size: 13px;
-            border: 1px solid #ccc;
-            margin-top: 10px;
+            border: 1px solid #e5e7eb;
+            background: white;
+        }
+
+        table.diff td,
+        table.diff th {
+            padding: 6px 8px;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+            white-space: pre-wrap;
         }
 
         .diff_header {
-            background-color: #f0f0f0;
-            font-weight: bold;
+            background-color: #f3f4f6;
+            color: #111827;
+            font-weight: 700;
         }
 
         .diff_next {
-            background-color: #e0e0e0;
+            background-color: #eef2ff;
+            color: #4338ca;
         }
 
         .diff_add {
-            background-color: #d4f7d4;
+            background-color: #dcfce7;
+            color: #166534;
         }
 
         .diff_chg {
-            background-color: #fff3b0;
+            background-color: #fef3c7;
+            color: #92400e;
         }
 
         .diff_sub {
-            background-color: #f8d7da;
-        }
-
-        td, th {
-            padding: 4px 6px;
-            border: 1px solid #ddd;
-        }
-
-        code {
-            font-family: Consolas, "Courier New", monospace;
+            background-color: #fee2e2;
+            color: #991b1b;
         }
 
         .no-diff {
-            color: #888;
+            margin: 0;
+            padding: 18px;
+            border-radius: 12px;
+            background: #f3f4f6;
+            color: #6b7280;
             font-style: italic;
+            border: 1px solid #e5e7eb;
+        }
+
+        .legend {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .legend-item {
+            font-size: 13px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+        }
+
+        .legend-add {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .legend-change {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .legend-remove {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        @media (max-width: 700px) {
+            .page {
+                padding: 16px;
+            }
+
+            header {
+                padding: 16px;
+            }
+
+            h1 {
+                font-size: 21px;
+            }
+
+            table.diff {
+                font-size: 12px;
+            }
         }
     </style>
 </head>
+
 <body>
     <header>
-        <h1>Diff for Artifact: ${name}</h1>
-        <h3>Comparing commits: <code>${originalHash}</code> → <code>${selectedHash}</code></h3>
+        <div class="header-top">
+            <h1>Diff for Artifact: ${safeName}</h1>
+        </div>
+
+        <div class="subtitle">
+            Full file comparison with highlighted differences.
+        </div>
+
+        <div class="commit-row">
+            <span class="commit-badge">${safeOriginalHash}</span>
+            <span class="arrow">→</span>
+            <span class="commit-badge">${safeSelectedHash}</span>
+        </div>
+
+        <div class="legend">
+            <span class="legend-item legend-add">Added</span>
+            <span class="legend-item legend-change">Changed</span>
+            <span class="legend-item legend-remove">Removed</span>
+        </div>
     </header>
 
-
-<div class="table-container">
-        ${diff.includes("(no differences found)")
-                                        ? `<p class="no-diff">(no differences found)</p>`
-                                        : `<pre class="diff-output">${diff}</pre>`}
-    </div>
-
+    <main class="page">
+        <div class="diff-card">
+            ${diff.includes("(no differences found)")
+                        ? `<p class="no-diff">(no differences found)</p>`
+                        : diff
+                    }
+        </div>
+    </main>
 </body>
-</html>
-    `;
+</html>`;
 
-                                newWindow.document.write(htmlContent);
-                                newWindow.document.close();
-                            };
+                newWindow.document.open();
+                newWindow.document.write(htmlContent);
+                newWindow.document.close();
+            }
 
-                        } else {
-                            differenceParagraph.innerText = "no diff";
-                            differenceParagraph.title = "";
-                            differenceParagraph.style.cursor = "default";
-                            differenceParagraph.onclick = null;
+            document.querySelectorAll('select[name="select_commit_hash"]').forEach(function (select) {
+                select.addEventListener("change", async function () {
+                    const artifactItem = select.closest(".artifact-item");
+                    const differenceParagraph = artifactItem.querySelector(".difference");
+                    const nameElem = artifactItem.closest(".artifact-container").querySelector(".name");
+
+                    const name = nameElem ? nameElem.innerText.trim() : null;
+                    const selectedHash = select.value;
+
+                    const commitElem = artifactItem.querySelector(".commit_hash");
+                    const linkElem = commitElem.querySelector("a");
+                    const originalHash = linkElem ? linkElem.textContent.trim() : commitElem.textContent.trim();
+
+                    if (!name || !originalHash || !selectedHash || originalHash === selectedHash) {
+                        setDifferenceState(differenceParagraph, "no diff", "none");
+                        return;
+                    }
+
+                    setDifferenceState(differenceParagraph, "loading diff...", "loading");
+
+                    try {
+                        const url =
+                            `/diff?name=${encodeURIComponent(name)}` +
+                            `&commit_hash_a=${encodeURIComponent(originalHash)}` +
+                            `&commit_hash_b=${encodeURIComponent(selectedHash)}`;
+
+                        const response = await fetch(url);
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            console.error("Diff error:", errorText);
+                            setDifferenceState(differenceParagraph, "diff error", "error");
+                            return;
                         }
+
+                        const data = await response.json();
+                        const diff = data.diff_by_table || "";
+                        const hasRealDiff = !diff.includes("(no differences found)");
+
+                        if (!hasRealDiff) {
+                            setDifferenceState(differenceParagraph, "no diff", "none");
+                            return;
+                        }
+
+                        setDifferenceState(differenceParagraph, "show diff", "ready");
+                        differenceParagraph.title = "Click to view full diff";
+
+                        differenceParagraph.onclick = function () {
+                            openDiffWindow({
+                                name,
+                                originalHash,
+                                selectedHash,
+                                diff
+                            });
+                        };
+
                     } catch (error) {
-                        differenceParagraph.innerText = "error loading diff";
                         console.error(error);
+                        setDifferenceState(differenceParagraph, "error loading diff", "error");
                     }
                 });
             });

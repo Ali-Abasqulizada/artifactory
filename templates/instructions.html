@@ -11,62 +11,199 @@
 
 <style>
     * {
+        box-sizing: border-box;
         font-family: Arial, Helvetica, sans-serif;
     }
 
+    body {
+        margin: 0;
+        background: #f5f7fb;
+        color: #1f2937;
+    }
+
     .code {
-        background-color: #f4f4f4;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
+        background-color: #eef2f7;
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-family: Consolas, monospace;
+        color: #111827;
+        border: 1px solid #d1d5db;
     }
 
     .artifact-container {
-        margin: 10px;
-        padding: 10px;
+        margin: 24px auto;
+        padding: 22px;
         display: flex;
-        gap: 40px;
-    }
-
-    .double_check_mark {
-        width: 20px;
-        height: 20px;
+        gap: 36px;
+        max-width: 1100px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
     }
 
     .artifact-header {
-        max-width: max-content;
+        min-width: 260px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
     }
 
     .artifact-header .name {
-        font-size: 28px;
-        padding: 10px;
+        font-size: 24px;
+        font-weight: 700;
+        padding: 18px;
         text-align: center;
-        border: 1px solid black;
+        border: none;
+        width: 260px;
+        min-height: 80px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #eef2ff, #f8fafc);
+        color: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        word-break: break-word;
     }
 
-    .artifact-header .type {
-        font-style: italic;
-        font-size: 14px;
+    .artifact-list {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
     }
 
     .artifact-item {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
+        padding: 12px 14px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        transition: 0.2s ease;
+        flex-wrap: wrap;
+    }
+
+    .artifact-item:hover {
+        background: #ffffff;
+        border-color: #c7d2fe;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+        transform: translateY(-1px);
+    }
+
+    .artifact-item .created_time,
+    .artifact-item .commit_hash,
+    .artifact-item .download,
+    .artifact-item .deploy,
+    .artifact-item .link {
+        margin: 0;
+        padding: 6px 12px;
+        border-right: 1px solid #d1d5db;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+
+    .artifact-item .created_time {
+        color: #6b7280;
     }
 
     .artifact-item .commit_hash {
-        max-width: max-content;
-        border-right: 1px solid black;
-        padding-right: 10px;
+        font-family: Consolas, monospace;
+        color: #374151;
+        background: #eef2f7;
+        border-radius: 8px;
+        border-right: none;
     }
 
-    .artifact-item a,
-    .difference {
+    .artifact-item a {
+        color: #2563eb;
         text-decoration: none;
-        color: black;
-        border-left: 1px solid black;
-        padding-left: 10px;
+        font-weight: 600;
+    }
+
+    .artifact-item a:hover {
+        color: #1d4ed8;
+        text-decoration: underline;
+    }
+
+    .artifact-item .download,
+    .artifact-item .deploy,
+    .artifact-item .link {
+        color: #2563eb;
+        cursor: pointer;
+    }
+
+    .artifact-item .deploy a {
+        color: #059669;
+    }
+
+    .artifact-item .deploy a:hover {
+        color: #047857;
+    }
+
+    select[name="select_commit_hash"] {
+        padding: 7px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #111827;
+        cursor: pointer;
+        outline: none;
+    }
+
+    select[name="select_commit_hash"]:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .difference {
+        margin: 0;
+        padding: 7px 12px;
+        border-left: none;
+        border-radius: 8px;
+        background: #f3f4f6;
+        color: #374151;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: default;
+    }
+
+    .difference:hover {
+        background: #e5e7eb;
+    }
+
+    .double_check_mark {
+        width: auto;
+        height: auto;
+        margin: 0;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #15803d;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: default;
+    }
+
+    @media (max-width: 800px) {
+        .artifact-container {
+            flex-direction: column;
+            margin: 16px;
+            gap: 18px;
+        }
+
+        .artifact-header {
+            justify-content: flex-start;
+        }
+
+        .artifact-header .name {
+            width: 100%;
+        }
+
+        .artifact-item {
+            align-items: flex-start;
+        }
     }
 </style>
 

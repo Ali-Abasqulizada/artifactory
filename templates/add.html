@@ -1,193 +1,401 @@
 <!DOCTYPE html>
-<html lang="en">
 
-{% include "navigation.html" %}
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Artifactory</title>
+    <title>Push Artifact</title>
 </head>
 
 <style>
     * {
+        box-sizing: border-box;
         font-family: Arial, Helvetica, sans-serif;
     }
 
-    .code {
-        background-color: #f4f4f4;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
-        margin: 10px 0;
+    body {
+        margin: 0;
+        background: #f5f7fb;
+        color: #1f2937;
+    }
+
+    .page-wrapper {
+        min-height: calc(100vh - 70px);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 40px 20px;
     }
 
     .artifact-container {
-        margin: 10px;
-        padding: 10px;
-        display: flex;
-        gap: 40px;
+        width: 100%;
+        max-width: 780px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+        overflow: hidden;
     }
 
     .artifact-header {
-        max-width: max-content;
+        padding: 32px;
     }
 
     .artifact-header .name {
-        font-size: 28px;
-        padding: 10px;
-        text-align: center;
-        border: 1px solid black;
+        margin: 0;
+        font-size: 30px;
+        font-weight: 800;
+        color: #111827;
     }
 
     .artifact-header .type {
-        font-style: italic;
-        font-size: 14px;
-        margin-top: 5px;
+        margin-top: 8px;
+        font-size: 15px;
+        color: #6b7280;
+    }
+
+    .description {
+        margin-top: 22px;
+        margin-bottom: 8px;
+        color: #4b5563;
+        font-size: 15px;
+    }
+
+    .code {
+        display: inline-block;
+        background-color: #eef2f7;
+        padding: 9px 13px;
+        border-radius: 9px;
+        font-family: Consolas, monospace;
+        color: #111827;
+        border: 1px solid #d1d5db;
+        margin: 8px 0 22px;
+    }
+
+    form {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
     }
 
     .artifact-item {
         display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 12px;
+        flex-direction: column;
+        gap: 7px;
     }
 
     .artifact-item label {
-        min-width: 120px;
-        border-right: 1px solid black;
-        padding-right: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #374151;
     }
 
     .artifact-item input,
     .artifact-item textarea {
-        padding: 8px;
-        min-width: 320px;
-        border: 1px solid black;
-        border-radius: 4px;
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 11px;
+        background: #ffffff;
+        color: #111827;
+        font-size: 15px;
+        outline: none;
+        transition: 0.2s ease;
+    }
+
+    .artifact-item input:focus,
+    .artifact-item textarea:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
     }
 
     .artifact-item textarea {
-        min-height: 80px;
+        min-height: 90px;
         resize: vertical;
+        font-family: Consolas, monospace;
+    }
+
+    .file-input-wrapper input[type="file"] {
+        padding: 10px;
+        background: #f9fafb;
+        cursor: pointer;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 4px;
     }
 
     .submit-button {
-        text-decoration: none;
-        color: black;
-        border: 1px solid black;
-        border-left: 1px solid black;
-        padding: 10px 18px;
-        background-color: white;
+        border: none;
+        border-radius: 11px;
+        padding: 12px 20px;
+        background: #2563eb;
+        color: white;
         cursor: pointer;
-        font-weight: bold;
+        font-weight: 700;
+        font-size: 15px;
+        transition: 0.2s ease;
     }
 
     .submit-button:hover {
-        background-color: #f4f4f4;
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+    }
+
+    .submit-button:active {
+        transform: scale(0.98);
     }
 
     .status-box {
-        margin-top: 15px;
-        padding: 10px;
-        border-radius: 5px;
-        background-color: #f4f4f4;
-        font-family: monospace;
-        max-width: 600px;
+        margin-top: 24px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background-color: #f3f4f6;
+        font-family: Consolas, monospace;
         white-space: pre-wrap;
+        border: 1px solid #e5e7eb;
+        color: #374151;
+        font-size: 14px;
+    }
+
+    .status-box.success {
+        background: #ecfdf5;
+        border-color: #bbf7d0;
+        color: #166534;
+    }
+
+    .status-box.failed {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #991b1b;
+    }
+
+    .status-box.loading {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        color: #1d4ed8;
+    }
+
+    .security-note {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #6b7280;
+    }
+
+    @media (max-width: 650px) {
+        .page-wrapper {
+            padding: 24px 14px;
+        }
+
+        .artifact-header {
+            padding: 24px;
+        }
+
+        .artifact-header .name {
+            font-size: 25px;
+        }
+
+        .form-actions {
+            justify-content: stretch;
+        }
+
+        .submit-button {
+            width: 100%;
+        }
     }
 </style>
 
-<div class="artifact-container">
-    <div class="artifact-header">
-        <div class="name">Push Artifact</div>
-        <div class="type">Upload artifact using POST method</div>
+<style>
+    .api-key-wrapper {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
 
-        <p>
-            This form sends a POST request to:
-        </p>
+    .api-key-wrapper input {
+        flex: 1;
+    }
 
-        <div class="code">/push</div>
+    .show-key-button {
+        border: 1px solid #d1d5db;
+        border-radius: 11px;
+        padding: 12px 16px;
+        background: #f9fafb;
+        color: #374151;
+        cursor: pointer;
+        font-weight: 700;
+        transition: 0.2s ease;
+        white-space: nowrap;
+    }
 
-        <form id="pushArtifactForm" enctype="multipart/form-data">
-            <div class="artifact-item">
-                <label for="name">Name</label>
-                <input type="text" id="name" name="name" placeholder="example_artifact" pattern="[a-zA-Z0-9-_]+"
-                    title="Only letters, numbers, dash and underscore are allowed" required>
+    .show-key-button:hover {
+        background: #eef2ff;
+        color: #2563eb;
+        border-color: #c7d2fe;
+    }
+</style>
+
+<body>
+    {% include "navigation.html" %}
+    
+    <div class="page-wrapper">
+        <div class="artifact-container">
+            <div class="artifact-header">
+                <h1 class="name">Push Artifact</h1>
+                <div class="type">Upload artifact using protected POST method</div>
+
+                <p class="description">
+                    This form sends a POST request to:
+                </p>
+
+                <div class="code">/push</div>
+
+                <form id="pushArtifactForm" enctype="multipart/form-data">
+                    <div class="artifact-item">
+                        <label for="api_key">API Key</label>
+
+                        <div class="api-key-wrapper">
+                            <input type="password" id="api_key" name="api_key" placeholder="Enter API key"
+                                autocomplete="off" required>
+
+                            <button type="button" id="toggleApiKey" class="show-key-button">
+                                Show
+                            </button>
+                        </div>
+
+                        <div class="security-note">
+                            The API key is sent as the X-API-Key header. It is not saved in this page.
+                        </div>
+                    </div>
+
+                    <div class="artifact-item">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" name="name" placeholder="example_artifact or app.py"
+                            pattern="[a-zA-Z0-9_.-]+"
+                            title="Only letters, numbers, dot, dash and underscore are allowed" required>
+                    </div>
+
+                    <div class="artifact-item">
+                        <label for="commit_hash">Commit Hash</label>
+                        <input type="text" id="commit_hash" name="commit_hash" placeholder="abc123" required>
+                    </div>
+
+                    <div class="artifact-item">
+                        <label for="tags">Tags</label>
+                        <textarea id="tags" name="tags" placeholder='{"source":"manual","deployed":false}'></textarea>
+                    </div>
+
+                    <div class="artifact-item file-input-wrapper">
+                        <label for="file">File</label>
+                        <input type="file" id="file" name="file" required>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="submit-button">Push Artifact</button>
+                    </div>
+                </form>
+
+                <div id="pushStatus" class="status-box">Status: Waiting for upload...</div>
             </div>
-
-            <div class="artifact-item">
-                <label for="commit_hash">Commit Hash</label>
-                <input type="text" id="commit_hash" name="commit_hash" placeholder="abc123" required>
-            </div>
-
-            <div class="artifact-item">
-                <label for="tags">Tags</label>
-                <textarea id="tags" name="tags" placeholder='["dev", "test", "v1"]'></textarea>
-            </div>
-
-            <div class="artifact-item">
-                <label for="file">File</label>
-                <input type="file" id="file" name="file" required>
-            </div>
-
-            <div class="artifact-item">
-                <label></label>
-                <button type="submit" class="submit-button">Push Artifact</button>
-            </div>
-        </form>
-
-        <div id="pushStatus" class="status-box">Status: Waiting for upload...</div>
+        </div>
     </div>
-</div>
 
-<script>
-    document.getElementById("pushArtifactForm").addEventListener("submit", async function (event) {
-        event.preventDefault();
+    <script>
+        document.getElementById("pushArtifactForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
 
-        const statusBox = document.getElementById("pushStatus");
+            const statusBox = document.getElementById("pushStatus");
 
-        const name = document.getElementById("name").value;
-        const commitHash = document.getElementById("commit_hash").value;
-        const tags = document.getElementById("tags").value;
-        const fileInput = document.getElementById("file");
+            const apiKey = document.getElementById("api_key").value.trim();
+            const name = document.getElementById("name").value.trim();
+            const commitHash = document.getElementById("commit_hash").value.trim();
+            const tags = document.getElementById("tags").value.trim();
+            const fileInput = document.getElementById("file");
 
-        if (!fileInput.files.length) {
-            statusBox.textContent = "Error: Please select a file.";
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append("name", name);
-        formData.append("commit_hash", commitHash);
-        formData.append("tags", tags);
-        formData.append("file", fileInput.files[0]);
-
-        statusBox.textContent = "Status: Uploading...";
-
-        try {
-            const response = await fetch("/push", {
-                method: "POST",
-                body: formData
-            });
-
-            const responseText = await response.text();
-
-            if (response.ok) {
-                statusBox.textContent =
-                    "Status: Success\n" +
-                    "HTTP Code: " + response.status + "\n" +
-                    "Response: " + responseText;
-            } else {
-                statusBox.textContent =
-                    "Status: Failed\n" +
-                    "HTTP Code: " + response.status + "\n" +
-                    "Response: " + responseText;
+            if (!apiKey) {
+                statusBox.className = "status-box failed";
+                statusBox.textContent = "Error: API key is required.";
+                return;
             }
-        } catch (error) {
-            statusBox.textContent =
-                "Status: Error\n" +
-                "Message: " + error.message;
-        }
-    });
-</script>
+
+            if (!fileInput.files.length) {
+                statusBox.className = "status-box failed";
+                statusBox.textContent = "Error: Please select a file.";
+                return;
+            }
+
+            if (tags) {
+                try {
+                    JSON.parse(tags);
+                } catch (error) {
+                    statusBox.className = "status-box failed";
+                    statusBox.textContent = "Error: Tags must be valid JSON.";
+                    return;
+                }
+            }
+
+            const formData = new FormData();
+            formData.append("name", name);
+            formData.append("commit_hash", commitHash);
+            formData.append("tags", tags);
+            formData.append("file", fileInput.files[0]);
+
+            statusBox.className = "status-box loading";
+            statusBox.textContent = "Status: Uploading...";
+
+            try {
+                const response = await fetch("/push", {
+                    method: "POST",
+                    headers: {
+                        "X-API-Key": apiKey
+                    },
+                    body: formData
+                });
+
+                const responseText = await response.text();
+
+                if (response.ok) {
+                    statusBox.className = "status-box success";
+                    statusBox.textContent =
+                        "Status: Success\n" +
+                        "HTTP Code: " + response.status + "\n" +
+                        "Response: " + responseText;
+                } else {
+                    statusBox.className = "status-box failed";
+                    statusBox.textContent =
+                        "Status: Failed\n" +
+                        "HTTP Code: " + response.status + "\n" +
+                        "Response: " + responseText;
+                }
+            } catch (error) {
+                statusBox.className = "status-box failed";
+                statusBox.textContent =
+                    "Status: Error\n" +
+                    "Message: " + error.message;
+            }
+        });
+    </script>
+
+    <script>
+        document.getElementById("toggleApiKey").addEventListener("click", function () {
+            const apiKeyInput = document.getElementById("api_key");
+            const toggleButton = document.getElementById("toggleApiKey");
+
+            if (apiKeyInput.type === "password") {
+                apiKeyInput.type = "text";
+                toggleButton.innerText = "Hide";
+            } else {
+                apiKeyInput.type = "password";
+                toggleButton.innerText = "Show";
+            }
+        });
+    </script>
+
+</body>
+
+</html>

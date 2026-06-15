@@ -3,6 +3,7 @@ from flask import Flask, request, send_file, render_template, jsonify
 import os, sqlite3, hashlib, json, difflib, html
 import re
 import requests
+import hmac
 
 import mimetypes
 import zipfile
@@ -338,8 +339,7 @@ def calculate_diff(name, commit_hash_a, commit_hash_b):
             rows_b,
             fromdesc=f"{name}@{commit_hash_a}",
             todesc=f"{name}@{commit_hash_b}",
-            context=True,
-            numlines=1
+            context=False
         )
 
     return all_diffs, None
@@ -451,6 +451,21 @@ def add():
 
 @app.route("/push", methods=["POST"])
 def push():
+    provided_key = request.headers.get("X-API-Key", "")
+    expected_key = app.config.get("DEPLOY_KEY", "")
+
+    if not expected_key:
+        app.logger.error("DEPLOY_KEY is not configured")
+        return "Server API key is not configured", 500
+
+    if not provided_key:
+        app.logger.warning("Push rejected: API key is missing")
+        return "API key is missing", 401
+
+    if not hmac.compare_digest(provided_key, expected_key):
+        app.logger.warning("Push rejected: invalid API key")
+        return "API key is invalid", 401
+
     name = request.form.get("name")
     commit_hash = request.form.get("commit_hash")
     tags = request.form.get("tags", "")
@@ -458,7 +473,10 @@ def push():
 
     if not name or not commit_hash or not file_content:
         error_message = "Name and commit hash and file are required"
-        app.logger.error(f"error: '{error_message}' | name: '{name}' | commit_hash: '{commit_hash}' | file_content: '{file_content}'") 
+        app.logger.error(
+            f"error: '{error_message}' | name: '{name}' | "
+            f"commit_hash: '{commit_hash}' | file_content: '{file_content}'"
+        )
         return error_message, 400
 
     is_allowed_characters = re.match(r"^[a-zA-Z0-9_.-]+$", name)
@@ -466,9 +484,9 @@ def push():
         error_message = "Invalid name. Name must contain only: a-z, A-Z, 0-9, dot, dash, underscore."
         app.logger.error(f"error_message: '{error_message}' | name: '{name}'")
         return error_message, 400
-    
+
     try:
-        parsed_tags = json.loads(tags) if tags else []
+        parsed_tags = json.loads(tags) if tags else {}
     except json.JSONDecodeError as err:
         error_message = "Invalid tags: Must be a valid JSON-encoded string."
         app.logger.error(f"error_message: '{error_message}' | tags: '{tags}' | error: {err}")
@@ -477,39 +495,50 @@ def push():
     conn, err = startup.connect_db(app.config["DATABASE"])
     if not conn:
         return str(err), 500
-    
+
     try:
         cursor = conn.cursor()
         cursor.execute(
             """
             INSERT INTO artifacts (name, commit_hash, tags) VALUES (?, ?, ?)
-            """, (name, commit_hash, tags))
-    
+            """,
+            (name, commit_hash, tags)
+        )
+
         artifact_id = cursor.lastrowid
-    
+
         _, ext = os.path.splitext(file_content.filename)
 
-        filepath = os.path.join(app.config["STORAGE_FOLDER"], f"{name}_{commit_hash}{ext}")
+        filepath = os.path.join(
+            app.config["STORAGE_FOLDER"],
+            f"{name}_{commit_hash}{ext}"
+        )
+
         file_content.save(filepath)
 
-        with open(filepath, 'rb') as f:
+        with open(filepath, "rb") as f:
             checksum = hashlib.md5(f.read()).hexdigest()
 
         cursor.execute(
             """
             INSERT INTO artifact_storage (artifact_id, checksum, path) VALUES (?, ?, ?)
-            """, (artifact_id, checksum, filepath))
+            """,
+            (artifact_id, checksum, filepath)
+        )
 
         conn.commit()
         cursor.close()
+
     except Exception as err:
         conn.rollback()
         error_message = "Failed to push artifact"
         app.logger.error(f"error_message: '{error_message}' | error: {err}")
         return error_message, 500
+
     finally:
         conn.close()
-    return 'OK', 201
+
+    return "OK", 201
 
 
 @app.route("/download", methods=["GET"])
