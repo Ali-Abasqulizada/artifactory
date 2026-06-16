@@ -2,12 +2,13 @@ from collections import defaultdict
 from flask import Flask, request, send_file, render_template, jsonify
 import os, sqlite3, hashlib, json, difflib, html
 import re
-import requests
 import hmac
 
+import posixpath
 import mimetypes
 import zipfile
 import xml.etree.ElementTree as ET
+
 from pathlib import Path
 
 try:

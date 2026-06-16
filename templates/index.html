@@ -23,7 +23,7 @@
 
     .code {
         background-color: #eef2f7;
-        padding: 10px 12px;
+        padding: 5px 12px;
         border-radius: 8px;
         font-family: Consolas, monospace;
         color: #111827;
@@ -260,7 +260,10 @@
                 <div class="artifact-item">
                     <p class="created_time"> {{ artifact.created_at }}</p>
                     <p class="commit_hash">
-                        {{ artifact.commit_hash }}
+                        <a href="{{ config.GITHUB_COMMIT_URL }}{{ artifact.commit_hash }}" target="_blank"
+                            rel="noopener noreferrer">
+                            {{ artifact.commit_hash }}
+                        </a>
                     </p>
                     {% if artifact.tags.type != 'other' %}
                     <select name="select_commit_hash" id="select_commit_hash">
