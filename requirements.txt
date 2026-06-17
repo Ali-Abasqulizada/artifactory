@@ -4,3 +4,4 @@ Flask-SQLAlchemy
 pylint
 requests
 pypdf
+openpyxl

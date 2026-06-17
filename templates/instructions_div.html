@@ -3,12 +3,13 @@
         <h2>Artifact database is empty</h2>
         <p>You can add artifacts by pushing them using this curl command:</p>
         <pre class="code">
-curl -F "name=example_name" \
+curl -X POST "http://localhost:5000/push" \
+     -H "X-API-Key: your_api_key_here" \
+     -F "name=example_name" \
      -F "commit_hash=example_hash" \
      -F "file=@/path/to/your/file" \
-     -F "tags={\"deployed\": true}" \
-     http://localhost:5000/push
-            </pre>
+     -F "tags={\"source\":\"manual\",\"deployed\":false}"
+        </pre>
         <p>You can downloads artifacts using this curl command:</p>
         <pre class="code">
 curl "http://127.0.0.1:5000/download?name=example_name" -o new_file

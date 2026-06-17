@@ -35,5 +35,7 @@ def connect_db(database="artifactory.db"):
         return conn, ""
     except sqlite3.Error as err:
         error_message = "Failed to connect to the database"
-        logging.getLogger().error(f"error_message: '{error_message}' | database: '{database}' | error: {err}")
+        logging.getLogger().error(
+            f"error_message: '{error_message}' | database: '{database}' | error: {err}"
+        )
         return None, err

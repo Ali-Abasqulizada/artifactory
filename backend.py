@@ -4,11 +4,9 @@ import os, sqlite3, hashlib, json, difflib, html
 import re
 import hmac
 
-import posixpath
 import mimetypes
 import zipfile
 import xml.etree.ElementTree as ET
-
 from pathlib import Path
 
 try:
@@ -19,28 +17,85 @@ except ImportError:
 from library import startup
 from library.config import config
 
+from datetime import date, datetime, time
+import openpyxl
+
 app = Flask(__name__)
 app.config.from_object(config.DevelopmentConfig)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app.config["STORAGE_FOLDER"] = os.path.join(BASE_DIR, app.config["STORAGE_FOLDER"])
-app.config["DATABASE"] = os.path.join(BASE_DIR ,app.config["DATABASE"])
+app.config["DATABASE"] = os.path.join(BASE_DIR, app.config["DATABASE"])
 
 startup.check_db_exists_or_fail(app.config["DATABASE"])
 startup.create_folder(app.config["STORAGE_FOLDER"])
 
 TEXT_EXTENSIONS = {
-    ".txt", ".md", ".py", ".js", ".ts", ".html", ".css", ".json", ".xml",
-    ".yml", ".yaml", ".csv", ".sql", ".ini", ".cfg", ".conf", ".log",
-    ".java", ".c", ".cpp", ".h", ".hpp", ".cs", ".php", ".rb", ".go",
-    ".rs", ".sh", ".bat", ".ps1"
+    ".txt",
+    ".md",
+    ".py",
+    ".js",
+    ".ts",
+    ".html",
+    ".css",
+    ".json",
+    ".xml",
+    ".yml",
+    ".yaml",
+    ".csv",
+    ".sql",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".log",
+    ".java",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".php",
+    ".rb",
+    ".go",
+    ".rs",
+    ".sh",
+    ".bat",
+    ".ps1",
 }
 SQLITE_EXTENSIONS = {".db", ".sqlite", ".sqlite3"}
 PDF_EXTENSIONS = {".pdf"}
 DOCX_EXTENSIONS = {".docx"}
 DOC_EXTENSIONS = {".doc"}
 ZIP_EXTENSIONS = {".zip"}
+
+XLSX_EXTENSIONS = {".xlsx"}
+XLS_EXTENSIONS = {".xls"}
+
+WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+WORD_TAG = f"{{{WORD_NS}}}"
+
+DOCX_NAMESPACE = {"w": WORD_NS}
+
+ABBREVIATIONS = {
+    "mr",
+    "mrs",
+    "ms",
+    "dr",
+    "prof",
+    "sr",
+    "jr",
+    "st",
+    "vs",
+    "etc",
+    "e.g",
+    "i.e",
+    "fig",
+    "no",
+    "vol",
+    "pp",
+    "p",
+}
 
 
 def get_artifact_file_path(name, commit_hash):
@@ -62,14 +117,17 @@ def get_artifact_file_path(name, commit_hash):
             ORDER BY artifacts.id DESC
             LIMIT 1
             """,
-            (name, commit_hash)
+            (name, commit_hash),
         )
 
         row = cursor.fetchone()
         cursor.close()
 
         if not row:
-            return None, f"Commit hash '{commit_hash}' does not exist for artifact '{name}'"
+            return (
+                None,
+                f"Commit hash '{commit_hash}' does not exist for artifact '{name}'",
+            )
 
         return row[0], None
 
@@ -78,7 +136,107 @@ def get_artifact_file_path(name, commit_hash):
 
     finally:
         conn.close()
-        
+
+
+def normalize_excel_value(value):
+    """
+    Converts Excel cell values into stable text for comparison.
+
+    It ignores Excel styling and focuses only on real cell content:
+    - text
+    - numbers
+    - dates
+    - times
+    - formulas
+    """
+    if value is None:
+        return ""
+
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+
+    if isinstance(value, time):
+        return value.strftime("%H:%M:%S")
+
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return str(value)
+
+    text = str(value)
+    text = text.replace("\xa0", " ")
+    text = text.replace("\u200b", "")
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
+
+
+def get_xlsx_lines(file_path):
+    """
+    Extracts simple content-based comparison lines from an .xlsx file.
+
+    It compares:
+    - sheet names
+    - cell addresses
+    - cell text
+    - numbers
+    - dates
+    - formulas
+
+    It ignores:
+    - font
+    - color
+    - bold/italic
+    - borders
+    - background color
+    - column width
+    - row height
+    - Excel styling
+    """
+    try:
+        workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=False)
+
+        lines = []
+
+        for sheet in workbook.worksheets:
+            lines.append(f"--- Sheet: {sheet.title} ---")
+
+            sheet_has_content = False
+
+            for row in sheet.iter_rows():
+                for cell in row:
+                    value_text = normalize_excel_value(cell.value)
+
+                    if not value_text:
+                        continue
+
+                    sheet_has_content = True
+
+                    if isinstance(cell.value, str) and cell.value.startswith("="):
+                        line = (
+                            f"{sheet.title}!{cell.coordinate} = FORMULA: {value_text}"
+                        )
+                    else:
+                        line = f"{sheet.title}!{cell.coordinate} = {value_text}"
+
+                    lines.append(line)
+
+            if not sheet_has_content:
+                lines.append(f"{sheet.title}: (empty sheet)")
+
+        workbook.close()
+
+        if not lines:
+            lines.append("(no Excel content found)")
+
+        return lines, ""
+
+    except Exception as err:
+        return None, f"Failed to read XLSX file '{file_path}': {err}"
+
 
 def get_db_dump_lines(db_path):
     """Connects to a SQLite database and returns its dump as a list of strings."""
@@ -98,10 +256,12 @@ def get_db_dump_lines(db_path):
 
     except sqlite3.Error as err:
         error_message = f"Failed to fetch data from database '{db_path}'"
-        app.logger.error(f"error_message: '{error_message}' | database: '{db_path}' | error: {err}")
+        app.logger.error(
+            f"error_message: '{error_message}' | database: '{db_path}' | error: {err}"
+        )
         return None, error_message
-    
-    
+
+
 def get_text_file_lines(file_path):
     """Reads normal text/code files."""
     try:
@@ -119,7 +279,10 @@ def get_text_file_lines(file_path):
 def get_pdf_lines(file_path):
     """Extracts text from a PDF file."""
     if PdfReader is None:
-        return None, "PDF support requires pypdf. Install it with: python -m pip install pypdf"
+        return (
+            None,
+            "PDF support requires pypdf. Install it with: python -m pip install pypdf",
+        )
 
     try:
         reader = PdfReader(file_path)
@@ -129,41 +292,323 @@ def get_pdf_lines(file_path):
             text = page.extract_text() or ""
             lines.append(f"--- Page {page_index} ---")
             lines.extend(text.splitlines())
-        
+
         return lines, ""
 
     except Exception as err:
         return None, f"Failed to read PDF file '{file_path}': {err}"
 
 
+def normalize_docx_text(text):
+    """
+    Normalizes DOCX text for accurate content-only comparison.
+
+    Ignores:
+    - visual line wrapping
+    - tabs
+    - repeated spaces
+    - manual line breaks
+
+    Keeps:
+    - actual words
+    - punctuation
+    - citations
+    - sentence content
+    """
+    if not text:
+        return ""
+
+    text = text.replace("\xa0", " ")
+    text = text.replace("\u200b", "")
+    text = text.replace("\t", " ")
+    text = text.replace("\r", " ")
+    text = text.replace("\n", " ")
+
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
+
+
+def is_sentence_boundary(text, index):
+    """
+    Checks whether '.', '!' or '?' is a real sentence boundary.
+
+    Avoids bad splits for:
+    - Dr.
+    - e.g.
+    - i.e.
+    - decimal numbers
+    - citations like .[1][2][3]
+    """
+    char = text[index]
+
+    if char not in ".!?":
+        return False
+
+    # Avoid decimal numbers: 3.14
+    if (
+        char == "."
+        and index > 0
+        and index + 1 < len(text)
+        and text[index - 1].isdigit()
+        and text[index + 1].isdigit()
+    ):
+        return False
+
+    # Avoid common abbreviations
+    prefix = text[: index + 1]
+    abbreviation_match = re.search(r"([A-Za-z.]+)\.$", prefix)
+
+    if abbreviation_match:
+        possible_abbreviation = abbreviation_match.group(1).lower().strip(".")
+
+        if possible_abbreviation in ABBREVIATIONS:
+            return False
+
+    j = index + 1
+
+    # Keep citations attached to the sentence: .[1][2][3]
+    while j < len(text):
+        citation_match = re.match(r"\[[^\]]+\]", text[j:])
+
+        if not citation_match:
+            break
+
+        j += citation_match.end()
+
+    # Keep closing quotes/brackets attached
+    while j < len(text) and text[j] in "\"'”’)]}":
+        j += 1
+
+    if j >= len(text):
+        return True
+
+    if not text[j].isspace():
+        return False
+
+    while j < len(text) and text[j].isspace():
+        j += 1
+
+    if j >= len(text):
+        return True
+
+    next_char = text[j]
+
+    return next_char.isupper() or next_char.isdigit() or next_char in "\"'“‘("
+
+
+def split_text_into_context_units(text):
+    """
+    Splits text into stable sentence-level units.
+
+    This prevents one large paragraph from becoming fully red/green
+    when only one sentence or phrase changed.
+    """
+    text = normalize_docx_text(text)
+
+    if not text:
+        return []
+
+    units = []
+    start = 0
+    index = 0
+
+    while index < len(text):
+        if is_sentence_boundary(text, index):
+            end = index + 1
+
+            # Include citations after punctuation
+            while end < len(text):
+                citation_match = re.match(r"\[[^\]]+\]", text[end:])
+
+                if not citation_match:
+                    break
+
+                end += citation_match.end()
+
+            # Include closing quotes/brackets
+            while end < len(text) and text[end] in "\"'”’)]}":
+                end += 1
+
+            unit = text[start:end].strip()
+
+            if unit:
+                units.append(unit)
+
+            start = end
+
+            while start < len(text) and text[start].isspace():
+                start += 1
+
+            index = start
+            continue
+
+        index += 1
+
+    remaining = text[start:].strip()
+
+    if remaining:
+        units.append(remaining)
+
+    return units
+
+
+def collect_visible_docx_text(element):
+    """
+    Collects only visible text from DOCX XML.
+
+    Ignores:
+    - font
+    - color
+    - bold/italic/underline
+    - styles
+    - layout
+
+    Keeps:
+    - actual text
+    - hyperlinks text
+    - inserted tracked-change text
+    """
+    text_parts = []
+
+    for node in element.iter():
+        if node.tag == WORD_TAG + "t":
+            if node.text:
+                text_parts.append(node.text)
+
+        elif node.tag == WORD_TAG + "tab":
+            text_parts.append(" ")
+
+        elif node.tag == WORD_TAG + "br":
+            text_parts.append(" ")
+
+        elif node.tag == WORD_TAG + "cr":
+            text_parts.append(" ")
+
+        elif node.tag == WORD_TAG + "noBreakHyphen":
+            text_parts.append("-")
+
+        elif node.tag == WORD_TAG + "softHyphen":
+            text_parts.append("")
+
+    return normalize_docx_text("".join(text_parts))
+
+
+def extract_docx_paragraph_units(paragraph):
+    """
+    Converts one Word paragraph into sentence/context units.
+    """
+    paragraph_text = collect_visible_docx_text(paragraph)
+    return split_text_into_context_units(paragraph_text)
+
+
+def extract_docx_paragraph_units(paragraph):
+    """
+    Converts one Word paragraph into sentence/context units.
+    """
+    paragraph_text = collect_visible_docx_text(paragraph)
+    return split_text_into_context_units(paragraph_text)
+
+
+def extract_docx_part_lines(root):
+    """
+    Extracts paragraph text from one DOCX XML part.
+
+    This version does not use special table extraction.
+    """
+    lines = []
+
+    for paragraph in root.findall(".//w:p", DOCX_NAMESPACE):
+        paragraph_units = extract_docx_paragraph_units(paragraph)
+        lines.extend(paragraph_units)
+
+    return lines
+
+
+def get_docx_part_label(path):
+    if path == "word/document.xml":
+        return "BODY"
+
+    if path.startswith("word/header"):
+        return "HEADER"
+
+    if path.startswith("word/footer"):
+        return "FOOTER"
+
+    if path == "word/footnotes.xml":
+        return "FOOTNOTES"
+
+    if path == "word/endnotes.xml":
+        return "ENDNOTES"
+
+    if path == "word/comments.xml":
+        return "COMMENTS"
+
+    return path
+
+
 def get_docx_lines(file_path):
     """
-    Extracts text from a .docx file.
-    .docx files are ZIP files containing XML.
+    Professional DOCX text-content diff extractor.
+
+    Detects real text changes while ignoring:
+    - font changes
+    - color changes
+    - style changes
+    - line wrapping
+    - spacing differences
+    - layout changes
+
+    Compares:
+    - body text
+    - headers
+    - footers
+    - footnotes
+    - endnotes
+    - comments
+
+    Does not use special table-row extraction.
     """
     try:
         lines = []
 
+        text_parts_to_check = [
+            "word/document.xml",
+            "word/footnotes.xml",
+            "word/endnotes.xml",
+            "word/comments.xml",
+        ]
+
         with zipfile.ZipFile(file_path, "r") as docx_zip:
-            xml_content = docx_zip.read("word/document.xml")
+            zip_file_names = docx_zip.namelist()
 
-        root = ET.fromstring(xml_content)
+            header_footer_parts = sorted(
+                file_name
+                for file_name in zip_file_names
+                if re.match(r"word/(header|footer)\d+\.xml$", file_name)
+            )
 
-        namespace = {
-            "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-        }
+            text_parts_to_check.extend(header_footer_parts)
 
-        for paragraph in root.findall(".//w:p", namespace):
-            text_parts = []
+            for part_path in text_parts_to_check:
+                if part_path not in zip_file_names:
+                    continue
 
-            for text_node in paragraph.findall(".//w:t", namespace):
-                if text_node.text:
-                    text_parts.append(text_node.text)
+                xml_content = docx_zip.read(part_path)
+                root = ET.fromstring(xml_content)
 
-            paragraph_text = "".join(text_parts).strip()
+                part_lines = extract_docx_part_lines(root)
 
-            if paragraph_text:
-                lines.append(paragraph_text)
+                if not part_lines:
+                    continue
+
+                part_label = get_docx_part_label(part_path)
+
+                lines.append(f"--- {part_label} ---")
+                lines.extend(part_lines)
+
+        if not lines:
+            lines.append("(no text found)")
 
         return lines, ""
 
@@ -189,8 +634,8 @@ def get_zip_listing_lines(file_path):
 
     except Exception as err:
         return None, f"Failed to read ZIP file '{file_path}': {err}"
-    
-    
+
+
 def get_binary_file_info_lines(file_path):
     """
     Fallback for unknown binary files.
@@ -216,13 +661,12 @@ def get_binary_file_info_lines(file_path):
 
 
 def get_artifacts():
-    conn , err = startup.connect_db(app.config["DATABASE"])
+    conn, err = startup.connect_db(app.config["DATABASE"])
     if not conn:
         return None, err
     try:
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT * from artifacts a INNER JOIN artifact_storage s ON a.id = s.artifact_id
             ORDER BY a.name, a.created_at DESC
             """)
@@ -230,14 +674,16 @@ def get_artifacts():
         grouped_artifacts = defaultdict(list)
         grouped_commit_hashes = defaultdict(list)
         for row in rows:
-            grouped_artifacts[row["name"]].append({
-                "id": row["id"],
-                "commit_hash": row["commit_hash"],
-                "tags": json.loads(row["tags"]) if row["tags"] else [],
-                "checksum": row["checksum"],
-                "path": row["path"],
-                "created_at": row["created_at"]
-            })
+            grouped_artifacts[row["name"]].append(
+                {
+                    "id": row["id"],
+                    "commit_hash": row["commit_hash"],
+                    "tags": json.loads(row["tags"]) if row["tags"] else [],
+                    "checksum": row["checksum"],
+                    "path": row["path"],
+                    "created_at": row["created_at"],
+                }
+            )
             grouped_commit_hashes[row["name"]].append(row["commit_hash"])
         return grouped_artifacts, grouped_commit_hashes, ""
     except sqlite3.Error as err:
@@ -251,33 +697,27 @@ def get_artifacts():
 def highlight_changes(old_row, new_row):
     highlighted_old = []
     highlighted_new = []
-    
+
     max_len = max(len(old_row), len(new_row))
     for i in range(max_len):
         old_val = str(old_row[i]) if i < len(old_row) else ""
         new_val = str(new_row[i]) if i < len(new_row) else ""
-        
+
         if old_val != new_val:
-            highlighted_old.append(f"<span style='background-color: #ffcccc;'>{html.escape(old_val)}</span>")
-            highlighted_new.append(f"<span style='background-color: #ccffcc;'>{html.escape(new_val)}</span>")
+            highlighted_old.append(
+                f"<span style='background-color: #ffcccc;'>{html.escape(old_val)}</span>"
+            )
+            highlighted_new.append(
+                f"<span style='background-color: #ccffcc;'>{html.escape(new_val)}</span>"
+            )
         else:
             highlighted_old.append(html.escape(old_val))
             highlighted_new.append(html.escape(new_val))
-    
+
     return f"({', '.join(highlighted_old)})", f"({', '.join(highlighted_new)})"
 
 
 def get_file_diff_lines(file_path):
-    """
-    Converts different file types into comparable text lines.
-    Supports:
-    - SQLite database files: .db, .sqlite, .sqlite3
-    - Code/text files: .py, .js, .html, .css, .json, .txt, etc.
-    - PDF files: .pdf
-    - Word files: .docx
-    - ZIP files: .zip
-    - Unknown binary files: checksum comparison info
-    """
     ext = Path(file_path).suffix.lower()
 
     if ext in SQLITE_EXTENSIONS:
@@ -292,8 +732,11 @@ def get_file_diff_lines(file_path):
     if ext in DOCX_EXTENSIONS:
         return get_docx_lines(file_path)
 
-    if ext in DOC_EXTENSIONS:
-        return None, "Old .doc files are not supported. Use .docx instead."
+    if ext in XLSX_EXTENSIONS:
+        return get_xlsx_lines(file_path)
+
+    if ext in XLS_EXTENSIONS:
+        return None, "Old .xls files are not supported. Please save the file as .xlsx."
 
     if ext in ZIP_EXTENSIONS:
         return get_zip_listing_lines(file_path)
@@ -304,21 +747,29 @@ def get_file_diff_lines(file_path):
 def calculate_diff(name, commit_hash_a, commit_hash_b):
     path_a, err = get_artifact_file_path(name, commit_hash_a)
     if err:
-        app.logger.error(f"error_message: '{err}' | name: '{name}' | commit_hash: '{commit_hash_a}'")
+        app.logger.error(
+            f"error_message: '{err}' | name: '{name}' | commit_hash: '{commit_hash_a}'"
+        )
         return None, err
 
     path_b, err = get_artifact_file_path(name, commit_hash_b)
     if err:
-        app.logger.error(f"error_message: '{err}' | name: '{name}' | commit_hash: '{commit_hash_b}'")
+        app.logger.error(
+            f"error_message: '{err}' | name: '{name}' | commit_hash: '{commit_hash_b}'"
+        )
         return None, err
 
     if not os.path.exists(path_a):
-        error_message = f"File does not exist for artifact '{name}' and commit '{commit_hash_a}'"
+        error_message = (
+            f"File does not exist for artifact '{name}' and commit '{commit_hash_a}'"
+        )
         app.logger.error(f"error_message: '{error_message}' | path: '{path_a}'")
         return None, error_message
 
     if not os.path.exists(path_b):
-        error_message = f"File does not exist for artifact '{name}' and commit '{commit_hash_b}'"
+        error_message = (
+            f"File does not exist for artifact '{name}' and commit '{commit_hash_b}'"
+        )
         app.logger.error(f"error_message: '{error_message}' | path: '{path_b}'")
         return None, error_message
 
@@ -335,12 +786,12 @@ def calculate_diff(name, commit_hash_a, commit_hash_b):
     if rows_a == rows_b:
         all_diffs = "(no differences found)"
     else:
-        all_diffs = difflib.HtmlDiff(wrapcolumn=160).make_table(
+        all_diffs = difflib.HtmlDiff(wrapcolumn=None).make_table(
             rows_a,
             rows_b,
             fromdesc=f"{name}@{commit_hash_a}",
             todesc=f"{name}@{commit_hash_b}",
-            context=False
+            context=False,
         )
 
     return all_diffs, None
@@ -382,10 +833,7 @@ def set_uniquely_deployed_flag(artifact_id):
     try:
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT name FROM artifacts WHERE id = ?",
-            (artifact_id,)
-        )
+        cursor.execute("SELECT name FROM artifacts WHERE id = ?", (artifact_id,))
 
         row = cursor.fetchone()
 
@@ -394,10 +842,7 @@ def set_uniquely_deployed_flag(artifact_id):
 
         name = row["name"] if isinstance(row, sqlite3.Row) else row[0]
 
-        cursor.execute(
-            "SELECT id, tags FROM artifacts WHERE name = ?",
-            (name,)
-        )
+        cursor.execute("SELECT id, tags FROM artifacts WHERE name = ?", (name,))
 
         artifacts = cursor.fetchall()
 
@@ -414,7 +859,7 @@ def set_uniquely_deployed_flag(artifact_id):
 
             cursor.execute(
                 "UPDATE artifacts SET tags = ? WHERE id = ?",
-                (json.dumps(tags), current_artifact_id)
+                (json.dumps(tags), current_artifact_id),
             )
 
         conn.commit()
@@ -423,7 +868,9 @@ def set_uniquely_deployed_flag(artifact_id):
     except Exception as err:
         conn.rollback()
         error_message = "Failed to update deployed flag"
-        app.logger.error(f"error_message: '{error_message}' | artifact_id: {artifact_id} | error: {err}")
+        app.logger.error(
+            f"error_message: '{error_message}' | artifact_id: {artifact_id} | error: {err}"
+        )
         return error_message, 500
 
     finally:
@@ -437,7 +884,9 @@ def index():
     if err:
         app.logger.error(f"error: '{err}'")
         return str(err), 500
-    return render_template("index.html", artifacts=artifacts, commit_hashes=commit_hashes)
+    return render_template(
+        "index.html", artifacts=artifacts, commit_hashes=commit_hashes
+    )
 
 
 @app.route("/instructions")
@@ -490,7 +939,9 @@ def push():
         parsed_tags = json.loads(tags) if tags else {}
     except json.JSONDecodeError as err:
         error_message = "Invalid tags: Must be a valid JSON-encoded string."
-        app.logger.error(f"error_message: '{error_message}' | tags: '{tags}' | error: {err}")
+        app.logger.error(
+            f"error_message: '{error_message}' | tags: '{tags}' | error: {err}"
+        )
         return error_message, 400
 
     conn, err = startup.connect_db(app.config["DATABASE"])
@@ -503,7 +954,7 @@ def push():
             """
             INSERT INTO artifacts (name, commit_hash, tags) VALUES (?, ?, ?)
             """,
-            (name, commit_hash, tags)
+            (name, commit_hash, tags),
         )
 
         artifact_id = cursor.lastrowid
@@ -511,8 +962,7 @@ def push():
         _, ext = os.path.splitext(file_content.filename)
 
         filepath = os.path.join(
-            app.config["STORAGE_FOLDER"],
-            f"{name}_{commit_hash}{ext}"
+            app.config["STORAGE_FOLDER"], f"{name}_{commit_hash}{ext}"
         )
 
         file_content.save(filepath)
@@ -524,7 +974,7 @@ def push():
             """
             INSERT INTO artifact_storage (artifact_id, checksum, path) VALUES (?, ?, ?)
             """,
-            (artifact_id, checksum, filepath)
+            (artifact_id, checksum, filepath),
         )
 
         conn.commit()
@@ -565,7 +1015,9 @@ def download_api():
                 SELECT path FROM artifact_storage
                 JOIN artifacts ON artifact_storage.artifact_id = artifacts.id
                 WHERE artifacts.name = ? AND artifacts.commit_hash = ?
-                """, (name, commit_hash))
+                """,
+                (name, commit_hash),
+            )
         else:
             # if commit hash is not specified, we download the latest artifact.
             cursor.execute(
@@ -573,14 +1025,18 @@ def download_api():
                 SELECT path FROM artifact_storage
                 JOIN artifacts ON artifact_storage.artifact_id = artifacts.id
                 WHERE artifacts.name = ? order by artifacts.id desc
-                """, (name,))
+                """,
+                (name,),
+            )
 
         row = cursor.fetchone()
         if not row:
             error_message = "Artifact not found"
-            app.logger.error(f"error_message: '{error_message}' | name: '{name}' | commit_hash: '{commit_hash}'")
+            app.logger.error(
+                f"error_message: '{error_message}' | name: '{name}' | commit_hash: '{commit_hash}'"
+            )
             return error_message, 404
-        filepath = row['path']
+        filepath = row["path"]
 
         return send_file(filepath, as_attachment=True), 200
     except Exception as err:
@@ -589,26 +1045,30 @@ def download_api():
         return error_message, 500
     finally:
         conn.close()
-        
-        
+
+
 @app.route("/download/<int:artifact_id>")
 def download_dashboard(artifact_id):
     conn, err = startup.connect_db(app.config["DATABASE"])
     if not conn:
         return str(err), 500
-    
+
     try:
         cursor = conn.cursor()
         cursor.execute(
             """
             SELECT path FROM artifact_storage WHERE artifact_id = ?
-            """, (artifact_id,))
+            """,
+            (artifact_id,),
+        )
         row = cursor.fetchone()
         if not row:
             error_message = "Artifact not found"
-            app.logger.error(f"error_message: '{error_message}' | artifact_id: {artifact_id}")
+            app.logger.error(
+                f"error_message: '{error_message}' | artifact_id: {artifact_id}"
+            )
             return error_message, 404
-        filepath = row['path']
+        filepath = row["path"]
 
         return send_file(filepath, as_attachment=True), 200
     except Exception as err:
@@ -627,21 +1087,27 @@ def diff_api():
 
     if not name or not commit_hash_a or not commit_hash_b:
         error_message = "Name, both commit hashes and table are required"
-        app.logger.error(f"error: '{error_message}' | name: '{name}' | commit_hash_a: '{commit_hash_a}' | commit_hash_b: '{commit_hash_b}'")
+        app.logger.error(
+            f"error: '{error_message}' | name: '{name}' | commit_hash_a: '{commit_hash_a}' | commit_hash_b: '{commit_hash_b}'"
+        )
         return error_message, 400
 
     diff, err = calculate_diff(name, commit_hash_a, commit_hash_b)
 
     if err:
-        app.logger.error(f"error: '{err}' | name: '{name}' | commit_hash_a: '{commit_hash_a}' | commit_hash_b: '{commit_hash_b}'")
+        app.logger.error(
+            f"error: '{err}' | name: '{name}' | commit_hash_a: '{commit_hash_a}' | commit_hash_b: '{commit_hash_b}'"
+        )
         return str(err), 500
-    
-    return jsonify({
-        "name1": name,
-        "commit_hash_a": commit_hash_a,
-        "commit_hash_b": commit_hash_b,
-        "diff_by_table": diff
-    })
+
+    return jsonify(
+        {
+            "name1": name,
+            "commit_hash_a": commit_hash_a,
+            "commit_hash_b": commit_hash_b,
+            "diff_by_table": diff,
+        }
+    )
 
 
 @app.route("/deploy/<int:artifact_id>")
