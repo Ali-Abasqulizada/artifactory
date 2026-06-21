@@ -860,9 +860,6 @@ def get_file_diff_lines(file_path):
     if ext in DOCX_EXTENSIONS:
         return get_docx_lines(file_path)
 
-    if ext in XLSX_EXTENSIONS:
-        return get_xlsx_lines(file_path)
-
     if ext in XLS_EXTENSIONS:
         return None, "Old .xls files are not supported. Please save the file as .xlsx."
 
