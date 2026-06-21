@@ -1,0 +1,173 @@
+<style>
+    .excel-diff-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 26px;
+    }
+
+    .excel-sheet-block {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+        overflow: auto;
+    }
+
+    .excel-sheet-title {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        font-weight: 800;
+        color: #111827;
+    }
+
+    .excel-summary {
+        margin: 0 0 16px 0;
+        color: #6b7280;
+        font-size: 14px;
+    }
+
+    .excel-legend {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+
+    .excel-legend span {
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 13px;
+        border: 1px solid #e5e7eb;
+        font-weight: 700;
+    }
+
+    .excel-diff-table {
+        border-collapse: collapse;
+        width: 100%;
+        background: white;
+        font-family: Consolas, monospace;
+        font-size: 13px;
+        border: 1px solid #d1d5db;
+    }
+
+    .excel-diff-table th,
+    .excel-diff-table td {
+        border: 1px solid #d1d5db;
+        padding: 8px;
+        vertical-align: top;
+        min-width: 90px;
+        max-width: 260px;
+        word-break: break-word;
+        white-space: pre-wrap;
+    }
+
+    .excel-corner,
+    .excel-column-header,
+    .excel-row-header {
+        background: #f3f4f6;
+        color: #374151;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .excel-row-header {
+        width: 54px;
+        min-width: 54px;
+    }
+
+    .excel-same {
+        background: #ffffff;
+        color: #111827;
+    }
+
+    .excel-added {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .excel-removed {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .excel-changed {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .excel-label {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        opacity: 0.8;
+    }
+
+    .excel-arrow {
+        margin: 4px 0;
+        color: #6b7280;
+        font-weight: 800;
+    }
+</style>
+
+{% if total_changed_cells == 0 %}
+<p class="no-diff">(no differences found)</p>
+{% else %}
+<div class="excel-diff-wrapper">
+    <div class="excel-legend">
+        <span class="excel-added">Added</span>
+        <span class="excel-removed">Removed</span>
+        <span class="excel-changed">Changed</span>
+    </div>
+
+    {% for sheet in sheets %}
+    <div class="excel-sheet-block">
+        <h2 class="excel-sheet-title">Sheet: {{ sheet.name }}</h2>
+        <p class="excel-summary">Changed cells in this sheet: {{ sheet.changed_count }}</p>
+
+        <table class="excel-diff-table">
+            <tr>
+                <th class="excel-corner"></th>
+
+                {% for column in sheet.columns %}
+                <th class="excel-column-header">{{ column }}</th>
+                {% endfor %}
+            </tr>
+
+            {% for row in sheet.rows %}
+            <tr>
+                <th class="excel-row-header">{{ row.row_number }}</th>
+
+                {% for cell in row.cells %}
+                {% if cell.status == "same" %}
+                <td class="excel-same">{{ cell.new_value }}</td>
+
+                {% elif cell.status == "added" %}
+                <td class="excel-added">
+                    <div class="excel-label">Added</div>
+                    <ins>{{ cell.new_value }}</ins>
+                </td>
+
+                {% elif cell.status == "removed" %}
+                <td class="excel-removed">
+                    <div class="excel-label">Removed</div>
+                    <del>{{ cell.old_value }}</del>
+                </td>
+
+                {% elif cell.status == "changed" %}
+                <td class="excel-changed">
+                    <div class="excel-label">Changed</div>
+                    <div><del>{{ cell.old_value }}</del></div>
+                    <div class="excel-arrow">↓</div>
+                    <div><ins>{{ cell.new_value }}</ins></div>
+                </td>
+                {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

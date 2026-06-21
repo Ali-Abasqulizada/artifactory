@@ -19,6 +19,7 @@ from library.config import config
 
 from datetime import date, datetime, time
 import openpyxl
+from openpyxl.utils import get_column_letter
 
 app = Flask(__name__)
 app.config.from_object(config.DevelopmentConfig)
@@ -172,6 +173,133 @@ def normalize_excel_value(value):
     text = re.sub(r"\s+", " ", text)
 
     return text.strip()
+
+
+def get_xlsx_cell_map(file_path):
+    workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=False)
+
+    try:
+        workbook_data = {}
+
+        for sheet in workbook.worksheets:
+            sheet_data = {}
+
+            for row in sheet.iter_rows():
+                for cell in row:
+                    value_text = normalize_excel_value(cell.value)
+
+                    if not value_text:
+                        continue
+
+                    if isinstance(cell.value, str) and cell.value.startswith("="):
+                        value_text = f"FORMULA: {value_text}"
+
+                    sheet_data[(cell.row, cell.column)] = value_text
+
+            workbook_data[sheet.title] = sheet_data
+
+        return workbook_data, ""
+
+    except Exception as err:
+        return None, f"Failed to read XLSX file '{file_path}': {err}"
+
+    finally:
+        workbook.close()
+
+
+def get_excel_cell_status(old_value, new_value):
+    if old_value == new_value:
+        return "same"
+
+    if old_value and not new_value:
+        return "removed"
+
+    if not old_value and new_value:
+        return "added"
+
+    return "changed"
+
+
+def calculate_xlsx_diff_table(file_path_a, file_path_b):
+    workbook_a, err = get_xlsx_cell_map(file_path_a)
+    if err:
+        return None, err
+
+    workbook_b, err = get_xlsx_cell_map(file_path_b)
+    if err:
+        return None, err
+
+    sheet_names = sorted(set(workbook_a.keys()) | set(workbook_b.keys()))
+
+    sheets = []
+    total_changed_cells = 0
+
+    for sheet_name in sheet_names:
+        sheet_a = workbook_a.get(sheet_name, {})
+        sheet_b = workbook_b.get(sheet_name, {})
+
+        all_cells = set(sheet_a.keys()) | set(sheet_b.keys())
+
+        changed_cells = [
+            cell_coordinate
+            for cell_coordinate in all_cells
+            if sheet_a.get(cell_coordinate, "") != sheet_b.get(cell_coordinate, "")
+        ]
+
+        if not changed_cells:
+            continue
+
+        total_changed_cells += len(changed_cells)
+
+        changed_rows = [row for row, column in changed_cells]
+        changed_columns = [column for row, column in changed_cells]
+
+        min_row = max(min(changed_rows) - 1, 1)
+        max_row = max(changed_rows) + 1
+
+        min_column = max(min(changed_columns) - 1, 1)
+        max_column = max(changed_columns) + 1
+
+        columns = [
+            get_column_letter(column_number)
+            for column_number in range(min_column, max_column + 1)
+        ]
+
+        rows = []
+
+        for row_number in range(min_row, max_row + 1):
+            row_cells = []
+
+            for column_number in range(min_column, max_column + 1):
+                coordinate = (row_number, column_number)
+
+                old_value = sheet_a.get(coordinate, "")
+                new_value = sheet_b.get(coordinate, "")
+
+                row_cells.append(
+                    {
+                        "old_value": old_value,
+                        "new_value": new_value,
+                        "status": get_excel_cell_status(old_value, new_value),
+                    }
+                )
+
+            rows.append({"row_number": row_number, "cells": row_cells})
+
+        sheets.append(
+            {
+                "name": sheet_name,
+                "changed_count": len(changed_cells),
+                "columns": columns,
+                "rows": rows,
+            }
+        )
+
+    rendered_html = render_template(
+        "excel_diff_table.html", sheets=sheets, total_changed_cells=total_changed_cells
+    )
+
+    return rendered_html, ""
 
 
 def get_xlsx_lines(file_path):
@@ -772,6 +900,18 @@ def calculate_diff(name, commit_hash_a, commit_hash_b):
         )
         app.logger.error(f"error_message: '{error_message}' | path: '{path_b}'")
         return None, error_message
+
+    ext_a = Path(path_a).suffix.lower()
+    ext_b = Path(path_b).suffix.lower()
+
+    if ext_a in XLSX_EXTENSIONS and ext_b in XLSX_EXTENSIONS:
+        excel_diff, err = calculate_xlsx_diff_table(path_a, path_b)
+
+        if err:
+            app.logger.error(f"error: '{err}' | path_a: '{path_a}' | path_b: '{path_b}'")
+            return None, err
+
+        return excel_diff, None
 
     rows_a, err = get_file_diff_lines(path_a)
     if err:
